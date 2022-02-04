@@ -66,12 +66,18 @@ contract VaultConfig {
 interface IVault {
     function want() external view returns (address);
     function config() external view returns (address);
+    function rewardRate() external view returns (uint);
 }
 
 abstract contract StrategyBase {
-    IVault vault;
-    VaultConfig config;
-    address want;
+    using SafeERC20 for IERC20;
+    using SafeMath for uint256;
+
+    uint public constant MAX = 10000;
+
+    IVault public vault;
+    VaultConfig public config;
+    address public want;
 
     modifier admin {
         require(msg.sender == config.governance(), "!admin");
@@ -84,7 +90,7 @@ abstract contract StrategyBase {
     }
 
     modifier harvestWrapper {
-        require(msg.sender == config.governance() || config.farmers(msg.sender))
+        require(msg.sender == config.governance() || config.farmers(msg.sender));
         _;
     }
 
@@ -93,6 +99,14 @@ abstract contract StrategyBase {
         vault = IVault(_vault);
         config = VaultConfig(vault.config());
         want = vault.want();
+    }
+
+    function govInCaseTokensGetStuck(IERC20 _asset, address target) external admin {
+        require(address(want) != address(_asset), "want");
+        uint b = _asset.balanceOf(address(this));
+        if (b > 0) {
+            _asset.safeTransfer(target, b);
+        }
     }
 }
 
@@ -171,13 +185,15 @@ contract YearnVaultV1 {
         }
         currentStrategy = pendingStrategy;
         // test strategy
-        uint before = IERC20(want).balanceOf(address(this)); 
-        earn()
-        IStrategy(currentStrategy).withdrawAll();
-        uint after = IERC20(want).balanceOf(address(this)); 
-        require(after >= before.mul(10000.sub(slippage)).div(10000), "!ste"); // strategy has a slippage bug
+        uint beforeAmt = IERC20(want).balanceOf(address(this)); 
+        if (beforeAmt > 0) {
+            earn();
+            IStrategy(currentStrategy).withdrawAll();
+            uint afterAmt = IERC20(want).balanceOf(address(this)); 
+            require(afterAmt >= beforeAmt.sub(beforeAmt.mul(slippage).div(10000)), "!ste"); // strategy has a slippage bug
 
-        earn();
+            earn();
+        }
     }
 
     function updateRewardRate(uint x) public admin {
@@ -231,7 +247,7 @@ contract YearnVaultV1 {
     }
 
 
-    function getPricePerFullShare() public view returns (uint) {
+    function pricePerShare() public view returns (uint) {
         if (totalSupply() == 0) {
             return 1e18;
         }
