@@ -6,6 +6,9 @@ import {metaMask, hooks} from "./connectors/metamask.js";
 import ConnectBtn from "./widgets/ConnectBtn.jsx";
 import Card from "./Card.jsx";
 
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
 const {useAccounts, useProvider, useChainId, useIsActive} = hooks;
 
 
@@ -54,6 +57,7 @@ const cards = [
 
 function App() {
   return (
+    <div>
     <div className="px-12 bg-slate-700 min-h-screen pt-2">
     <div className="header flex justify-between pr-1">
       <div className="inline-flex items-center">
@@ -69,6 +73,8 @@ function App() {
         })
       }
     </div>
+    </div>
+    <ToastContainer />
     </div>
   );
 }

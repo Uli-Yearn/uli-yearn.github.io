@@ -1,4 +1,5 @@
 pragma solidity ^0.8.2;
+pragma experimental ABIEncoderV2;
 
 import "./base.sol";
 
@@ -67,6 +68,7 @@ interface IVault {
     function want() external view returns (address);
     function config() external view returns (address);
     function rewardRate() external view returns (uint);
+    function updatePricePerShareTicker() external;
 }
 
 abstract contract StrategyBase {
@@ -92,6 +94,7 @@ abstract contract StrategyBase {
     modifier harvestWrapper {
         require(msg.sender == config.governance() || config.farmers(msg.sender));
         _;
+        vault.updatePricePerShareTicker();
     }
 
 
@@ -138,11 +141,24 @@ contract YearnVaultV1 {
 
     mapping (address => bool) public strategists;
 
+    struct ApyTick {
+        uint t0PricePerShare;
+        uint t0Timestamp; 
+        uint t1PricePerShare;
+        uint t1Timestamp; 
+    }
+
+    ApyTick public tick;
+
     constructor(address _config, address _want) {
         config = VaultConfig(_config);
         want = IERC20(_want);
         require(want.totalSupply() > 0);
         _decimals = IERC20(_want).decimals();
+        tick.t0PricePerShare = 1e18;
+        tick.t1PricePerShare = 1e18;
+        tick.t0Timestamp = block.timestamp;
+        tick.t1Timestamp = block.timestamp;
     }
 
     modifier lock() {
@@ -246,12 +262,21 @@ contract YearnVaultV1 {
         IStrategy(currentStrategy).withdraw(_amount);
     }
 
-
     function pricePerShare() public view returns (uint) {
         if (totalSupply() == 0) {
             return 1e18;
         }
         return totalBalance().mul(1e18).div(totalSupply());
+    }
+
+    function updatePricePerShareTicker() public {
+        if (block.timestamp <= tick.t1Timestamp + 1 * 60) {
+            return;
+        }
+        tick.t0PricePerShare = tick.t1PricePerShare;
+        tick.t0Timestamp = tick.t1Timestamp;
+        tick.t1PricePerShare = pricePerShare();
+        tick.t1Timestamp = block.timestamp;
     }
 
     function earn() public {

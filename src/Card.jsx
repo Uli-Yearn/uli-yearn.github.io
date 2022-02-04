@@ -2,6 +2,8 @@ import {useState, useEffect} from "react";
 import { Tab } from '@headlessui/react'
 import {ethers} from "ethers"
 
+import { toast } from 'react-toastify';
+
 import { formatFixed, parseFixed } from '@ethersproject/bignumber'
 
 import {metaMask, hooks} from "./connectors/metamask.js";
@@ -10,6 +12,16 @@ const {useAccounts, useProvider, useChainId, useIsActive} = hooks;
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(' ')
+}
+
+const toastConfig = {
+  position: "top-right",
+  autoClose: 2000,
+  hideProgressBar: false,
+  closeOnClick: true,
+  pauseOnHover: true,
+  draggable: false,
+  progress: undefined,
 }
 
 const tabs = ["Deposit", "Withdraw"]
@@ -24,6 +36,7 @@ const erc20ABI = [
 
 const vaultABI = [
   "function pricePerShare() view returns (uint)",
+  "function tick() view returns (tuple(uint, uint, uint, uint))",
   "function totalSupply() view returns (uint)",
   "function totalBalance() view returns (uint)",
   "function decimals() view returns (uint)",
@@ -33,11 +46,79 @@ const vaultABI = [
   "function withdraw(uint)",
 ]
 
+const uniV2PairAbi = [
+  'function name() view returns (string memory)',
+  'function symbol() view returns (string memory)',
+  'function decimals() view returns (uint8)',
+  'function totalSupply() view returns (uint)',
+  'function balanceOf(address owner) view returns (uint)',
+  'function allowance(address owner, address spender) view returns (uint)',
+
+  'function factory() view returns (address)',
+  'function token0() view returns (address)',
+  'function token1() view returns (address)',
+  'function getReserves() view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)',
+  'function price0CumulativeLast() view returns (uint)',
+  'function price1CumulativeLast() view returns (uint)',
+];
+
+const uniV2RouterAbi = new ethers.utils.Interface([
+  'function getAmountsOut(uint, address[] memory) view returns (uint[] memory)',
+]);
+
+const TEN = ethers.BigNumber.from(10); 
+const E18 = ethers.BigNumber.from('1000000000000000000'); // 1e18
+
+const calLpUsdValue = async (lpAmts, provider, lpAddr, quotaToken, quotaTokenUsdPath, router) => {
+  let lpContract = new ethers.Contract(lpAddr, uniV2PairAbi, provider);
+  let quotaContract = new ethers.Contract(quotaToken, erc20ABI, provider); 
+  let totalValue = (await quotaContract.balanceOf(lpAddr)).mul(2);
+  let totalSupply = await lpContract.totalSupply();
+  if (quotaTokenUsdPath) {
+    let routerContract = new ethers.Contract(router, uniV2RouterAbi, provider);
+    let usdContract = new ethers.Contract(quotaTokenUsdPath[quotaTokenUsdPath.length - 1], erc20ABI, provider);
+    let quotaDecimals = await quotaContract.decimals()
+    let usdDecimals = await usdContract.decimals();
+    let amts = await routerContract.getAmountsOut(parseFixed("1", quotaDecimals), quotaTokenUsdPath)
+    let amt = amts[amts.length - 1]
+    return lpAmts.map((lpAmt) => {
+      return formatFixed(totalValue.mul(lpAmt).div(totalSupply).mul(amt).div(TEN.pow(quotaDecimals)), usdDecimals);
+    })
+  } else {
+    let usdDecimals = await quotaContract.decimals();
+    return lpAmts.map((lpAmt) => {
+      return formatFixed(totalValue.mul(lpAmt).div(totalSupply), usdDecimals);
+    })
+  }
+}
+
+const SECONDS_PER_DAY = 24 * 60 * 60;
+
+const calApy = (val) => {
+  let t0Share = val[0];
+  let t0Timestamp = val[1].toNumber();
+  let t1Share = val[2];
+  let t1Timestamp = val[3].toNumber();
+
+  console.log(t0Share.toString(), t0Timestamp, t1Share.toString(), t1Timestamp);
+
+  if (t0Timestamp === t1Timestamp) {
+    return 0;
+  }
+  let placeholder = ethers.BigNumber.from(1000000);
+  let tsDelta = t1Timestamp - t0Timestamp;
+  let shareDelta = t1Share.mul(placeholder).div(t0Share).sub(placeholder).mul(SECONDS_PER_DAY * 365).div(tsDelta).div(E18);
+  let apy = shareDelta.toNumber() * 100 / placeholder.toNumber(); 
+  console.log(apy);
+  return apy;
+}
+
 function useVault(addr) {
   const accounts = useAccounts();
   const provider = useProvider();
   const [refresh, setRefresh] = useState(1);
-  const [totalBalance, setTotalBalance] = useState(undefined);
+  const [tvl, setTvl] = useState(undefined);
+  const [apy, setApy] = useState(undefined);
   const [userDeposited, setUserDeposited] = useState(undefined);
   const [decimals, setDecimals] = useState(undefined);
   const [want, setWant] = useState(undefined);
@@ -48,11 +129,15 @@ function useVault(addr) {
     let run = async () => {
       if (provider && accounts && accounts.length) {
         let c = new ethers.Contract(addr, vaultABI, provider); 
-        setTotalBalance(await c.totalBalance())
-        setUserDeposited(await c.balanceOf(accounts[0]))
+        setApy(calApy(await c.tick()));
         setDecimals(await c.decimals())
         let want = await c.want();
         setWant(want);
+        let _userDeposited = await c.balanceOf(accounts[0])
+        let usdValues = await calLpUsdValue([await c.totalBalance(), _userDeposited], provider, want, "0xB12BFcA5A55806AaF64E99521918A4bf0fC40802", null, null)
+        // let usdValues = await calLpUsdValue([await c.totalBalance(), _userDeposited], provider, want, "0xC42C30aC6Cc15faC9bD938618BcaA1a1FaE8501d", ["0xC42C30aC6Cc15faC9bD938618BcaA1a1FaE8501d", "0xB12BFcA5A55806AaF64E99521918A4bf0fC40802"], "0xa3a1eF5Ae6561572023363862e238aFA84C72ef5")
+        setTvl(usdValues);
+        setUserDeposited(_userDeposited);
         let wantContract = new ethers.Contract(want, erc20ABI, provider); 
         let _bal = await wantContract.balanceOf(accounts[0])
         setUserWantBalance(_bal);
@@ -67,11 +152,14 @@ function useVault(addr) {
     if (provider && accounts && accounts.length && want) {
       let wantContract = new ethers.Contract(want, erc20ABI, provider).connect(provider.getSigner()); 
       let tx = await wantContract.approve(addr, ethers.constants.MaxUint256);
-      await provider.waitForTransaction(tx.hash)
-      setRefresh((new Date()).getTime());
+      toast("Transaction Pending" , toastConfig);
+      let receipt = await provider.waitForTransaction(tx.hash)
+      if (receipt.status === 1) {
+        toast("Transaction Success" , toastConfig);
+      }
       setTimeout(() => {
         setRefresh((new Date()).getTime());
-      }, 2000)
+      }, 5000)
     }
   }
 
@@ -79,10 +167,15 @@ function useVault(addr) {
     if (provider && accounts && accounts.length) {
       let vaultContract = new ethers.Contract(addr, vaultABI, provider).connect(provider.getSigner()); 
       let tx = await vaultContract.deposit(parseFixed(amt, decimals));
+      toast("Transaction Pending" , toastConfig);
       let receipt = await provider.waitForTransaction(tx.hash)
+      console.log(receipt)
+      if (receipt.status === 1) {
+        toast("Transaction Success" , toastConfig);
+      }
       setTimeout(() => {
         setRefresh((new Date()).getTime());
-      }, 2000)
+      }, 5000)
     }
   }
 
@@ -90,24 +183,29 @@ function useVault(addr) {
     if (provider && accounts && accounts.length) {
       let vaultContract = new ethers.Contract(addr, vaultABI, provider).connect(provider.getSigner()); 
       let tx = await vaultContract.withdraw(parseFixed(amt, decimals));
+      toast("Transaction Pending" , toastConfig);
       let receipt = await provider.waitForTransaction(tx.hash)
+      console.log(receipt)
+      if (receipt.status === 1) {
+        toast("Transaction Success" , toastConfig);
+      }
       setTimeout(() => {
         setRefresh((new Date()).getTime());
-      }, 2000)
+      }, 5000)
     }
   }
 
-  return [totalBalance, userDeposited, decimals, want, userWantBalance, enoughAllowance, approve, deposit, withdraw];
+  return [tvl, apy, userDeposited, decimals, want, userWantBalance, enoughAllowance, approve, deposit, withdraw];
 }
 
 function Card({config}) {
   let [depositBalance, setDepositBalance] = useState("0");
   let [withdrawBalance, setWithdrawBalance] = useState("0");
-  let vaultAddr = "0x2C30380006c89AD45f17F68C1584271091499622"
-  const [vaultWantBalance, userDeposited, decimals, want, userWantBalance, enoughAllowance, approve, deposit, withdraw] = useVault(vaultAddr);
+  let vaultAddr = "0x77C3E85c0c3D39E230DB1D5cb923df6FF4A1edC8"
+  const [tvl, apy, userDeposited, decimals, want, userWantBalance, enoughAllowance, approve, deposit, withdraw] = useVault(vaultAddr);
 
   return (
-      <div className="rounded-md bg-slate-900 px-4 pt-2 text-gray-50 flex flex-col justify-between space-y-8 pb-6">
+      <div className="rounded-md bg-slate-900 px-4 pt-2 text-gray-50 flex flex-col justify-between space-y-8 pb-8">
         <div className="flex justify-between items-center flex-none">
           <div className="grow">
             <div className="text-lg font-bold">{config.title}</div>
@@ -124,15 +222,15 @@ function Card({config}) {
         <div className="grid grid-cols-3 w-full">
           <div className="flex flex-col items-center">
             <div>TVL($)</div> 
-            <div>{vaultWantBalance ? parseInt(formatFixed(vaultWantBalance, decimals)) : "-"}</div>
+            <div>{tvl ? tvl[0] : "-"}</div>
           </div>
           <div className="flex flex-col items-center">
             <div>APY</div> 
-            <div>15%</div>
+            <div>{apy + "%"}</div>
           </div>
           <div className="flex flex-col items-center">
-            <div>Your Balance</div> 
-            <div>{userDeposited ? formatFixed(userDeposited, decimals) : "-"}</div>
+            <div>Your Balance($)</div> 
+            <div>{tvl ? tvl[1] : "-"}</div>
           </div>
         </div>
         <div>
