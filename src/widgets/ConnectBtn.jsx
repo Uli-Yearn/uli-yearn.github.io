@@ -22,7 +22,7 @@ function ConnectBtn() {
     }
   }
   return (
-    <div className="bg-neutral-900 rounded-md px-3 py-1 inline-flex justify-center items-center font-bold text-gray-50">
+    <div className="bg-neutral-900 rounded-md px-3 py-1 inline-flex place-items-center font-bold text-gray-50">
       {renderContent()}
     </div>
   )

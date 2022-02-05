@@ -121,11 +121,7 @@ contract AmmLpStrategy is StrategyBase {
 
         IERC20(RewardToken).safeTransfer(config.rewarder(), fee);
 
-        rewardAmt = IERC20(RewardToken).balanceOf(address(this));
-
-        if (rewardAmt == 0) {
-            return;
-        }
+        rewardAmt = rewardAmt.sub(fee);
 
         if (token0 != RewardToken) {
             Uni(ammRouter).swapExactTokensForTokens(

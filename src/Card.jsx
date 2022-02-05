@@ -118,7 +118,7 @@ function useVault(addr) {
   const provider = useProvider();
   const [refresh, setRefresh] = useState(1);
   const [tvl, setTvl] = useState(undefined);
-  const [apy, setApy] = useState(undefined);
+  const [apy, setApy] = useState(0);
   const [userDeposited, setUserDeposited] = useState(undefined);
   const [decimals, setDecimals] = useState(undefined);
   const [want, setWant] = useState(undefined);
