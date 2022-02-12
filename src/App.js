@@ -17,48 +17,19 @@ const cards = [
   {
     title: "AURORA/USDC",
     platform: "WannaSwap",
+    vaultAddr: "0x77C3E85c0c3D39E230DB1D5cb923df6FF4A1edC8",
+    wantSource: "https://wannaswap.finance/exchange/add/0xB12BFcA5A55806AaF64E99521918A4bf0fC40802/0xC42C30aC6Cc15faC9bD938618BcaA1a1FaE8501d",
     icons: [
+      "https://wannaswap.finance/_next/image?url=%2Ficon.png&w=96&q=50",
       "https://wannaswap.finance/_next/image?url=https%3A%2F%2Fraw.githubusercontent.com%2Fwannaswap%2Ftokens%2Fmaster%2Fblockchains%2Faurora%2Fassets%2F0xB12BFcA5A55806AaF64E99521918A4bf0fC40802%2Flogo.png&w=96&q=50"
     ]
   },
-  // {
-  //   title: "AURORA/USDC",
-  //   platform: "WannaSwap",
-  //   icons: [
-  //     "https://wannaswap.finance/_next/image?url=%2Ficon.png&w=96&q=50",
-  //     "https://wannaswap.finance/_next/image?url=https%3A%2F%2Fraw.githubusercontent.com%2Fwannaswap%2Ftokens%2Fmaster%2Fblockchains%2Faurora%2Fassets%2F0xB12BFcA5A55806AaF64E99521918A4bf0fC40802%2Flogo.png&w=96&q=50"
-  //   ]
-  // },
-  // {
-  //   title: "AURORA/USDC",
-  //   platform: "WannaSwap",
-  //   icons: [
-  //     "https://wannaswap.finance/_next/image?url=%2Ficon.png&w=96&q=50",
-  //     "https://wannaswap.finance/_next/image?url=https%3A%2F%2Fraw.githubusercontent.com%2Fwannaswap%2Ftokens%2Fmaster%2Fblockchains%2Faurora%2Fassets%2F0xB12BFcA5A55806AaF64E99521918A4bf0fC40802%2Flogo.png&w=96&q=50"
-  //   ]
-  // },
-  // {
-  //   title: "AURORA/USDC",
-  //   platform: "WannaSwap",
-  //   icons: [
-  //     "https://wannaswap.finance/_next/image?url=%2Ficon.png&w=96&q=50",
-  //     "https://wannaswap.finance/_next/image?url=https%3A%2F%2Fraw.githubusercontent.com%2Fwannaswap%2Ftokens%2Fmaster%2Fblockchains%2Faurora%2Fassets%2F0xB12BFcA5A55806AaF64E99521918A4bf0fC40802%2Flogo.png&w=96&q=50"
-  //   ]
-  // },
-  // {
-  //   title: "AURORA/USDC",
-  //   platform: "WannaSwap",
-  //   icons: [
-  //     "https://wannaswap.finance/_next/image?url=%2Ficon.png&w=96&q=50",
-  //     "https://wannaswap.finance/_next/image?url=https%3A%2F%2Fraw.githubusercontent.com%2Fwannaswap%2Ftokens%2Fmaster%2Fblockchains%2Faurora%2Fassets%2F0xB12BFcA5A55806AaF64E99521918A4bf0fC40802%2Flogo.png&w=96&q=50"
-  //   ]
-  // },
 ]
 
 function App() {
   return (
     <div>
-    <div className="px-12 bg-slate-700 min-h-screen pt-2">
+    <div className="px-4 md:px-6 bg-slate-700 min-h-screen pt-2 pb-10">
     <div className="header flex justify-between pr-1">
       <div className="inline-flex items-center">
         <img src={navLogo} className="h-11 pl-2"/>

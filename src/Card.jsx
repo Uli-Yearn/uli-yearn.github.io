@@ -201,11 +201,11 @@ function useVault(addr) {
 function Card({config}) {
   let [depositBalance, setDepositBalance] = useState("0");
   let [withdrawBalance, setWithdrawBalance] = useState("0");
-  let vaultAddr = "0x77C3E85c0c3D39E230DB1D5cb923df6FF4A1edC8"
+  let vaultAddr = config.vaultAddr;
   const [tvl, apy, userDeposited, decimals, want, userWantBalance, enoughAllowance, approve, deposit, withdraw] = useVault(vaultAddr);
 
   return (
-      <div className="rounded-md bg-slate-900 px-4 pt-2 text-gray-50 flex flex-col justify-between space-y-8 pb-8">
+      <div className="rounded-md bg-slate-900 px-4 pt-2 text-gray-50 flex flex-col justify-between space-y-8 pb-6">
         <div className="flex justify-between items-center flex-none">
           <div className="grow">
             <div className="text-lg font-bold">{config.title}</div>
@@ -259,9 +259,10 @@ function Card({config}) {
                 'focus:outline-none ring-white ring-opacity-60'
               )}
             >
-            <div className="flex text-xs mb-1 mt-2">
+            <div className="flex text-xs mb-1 mt-3">
               <div>Balance:</div> 
               <div className="pl-2 underline cursor-pointer decoration-dashed" onClick={() => {setDepositBalance(formatFixed(userWantBalance, decimals))}}>{userWantBalance ? formatFixed(userWantBalance, decimals) : "-"}</div>
+              <a className="pl-2 underline cursor-pointer decoration-solid decoration-teal-600" href={config.wantSource} target="_blank" >GetToken</a>
             </div>
             <div className="flex justify-between space-x-4">
               <input value={depositBalance} onChange={(evt) => setDepositBalance(evt.target.value)} className="grow shadow appearance-none border rounded-md py-1 px-1 text-gray-50 leading-tight bg-white/[0.12]" id="username" type="text" />
@@ -277,7 +278,7 @@ function Card({config}) {
                 'focus:outline-none ring-white ring-opacity-60'
               )}
             >
-            <div className="flex text-xs mb-1 mt-2">
+            <div className="flex text-xs mb-1 mt-3">
               <div>Balance:</div> 
               <div onClick={() => {setWithdrawBalance(formatFixed(userDeposited, decimals))}}className="pl-2 underline cursor-pointer decoration-dashed">{userDeposited ? formatFixed(userDeposited, decimals) : "-"}</div>
             </div>
@@ -287,8 +288,12 @@ function Card({config}) {
             </div>
             </Tab.Panel>
           </Tab.Panels>
-      </Tab.Group>
-      </div>
+        </Tab.Group>
+        </div>
+        <div className="flex justify-around text-xs">
+          <div>Deposit Fee: 0%</div>
+          <div>Withdraw Fee: 0%</div>
+        </div>
       </div>
   )
 }
